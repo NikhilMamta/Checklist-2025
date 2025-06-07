@@ -145,9 +145,11 @@ const addYears = (date, years) => {
 
 export default function AssignTask() {
   const [date, setSelectedDate] = useState(null);
+  const [endDate, setEndDate] = useState(null); // New state for end date
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState([]);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false); // New state for end calendar
   const [accordionOpen, setAccordionOpen] = useState(false);
 
   // Add new state variables for dropdown options
@@ -188,6 +190,12 @@ export default function AssignTask() {
     if (name === "department") {
       setFormData((prev) => ({ ...prev, [name]: value, doer: "" }));
       filterDoerOptions(value);
+    } else if (name === "frequency") {
+      // Reset end date when frequency changes
+      if (value !== "one-time") {
+        setEndDate(null);
+      }
+      setFormData((prev) => ({ ...prev, [name]: value }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -451,6 +459,12 @@ const generateTasks = async () => {
     return;
   }
 
+  // For one-time tasks, validate end date
+  if (formData.frequency === "one-time" && !endDate) {
+    alert("Please select a Task End Date for one-time tasks.");
+    return;
+  }
+
   // Fetch working days from the sheet
   const workingDays = await fetchWorkingDays();
   if (workingDays.length === 0) {
@@ -496,6 +510,7 @@ const generateTasks = async () => {
   // For one-time tasks, just use the first available date
   if (formData.frequency === "one-time") {
     const taskDateStr = futureDates[startIndex];
+    const taskEndDateStr = formatDateToDDMMYYYY(endDate);
     
     tasks.push({
       description: formData.description,
@@ -503,6 +518,7 @@ const generateTasks = async () => {
       givenBy: formData.givenBy,
       doer: formData.doer,
       dueDate: taskDateStr,
+      endDate: taskEndDateStr, // Add end date for one-time tasks
       status: "pending",
       frequency: formData.frequency,
       enableReminders: formData.enableReminders,
@@ -742,7 +758,8 @@ const handleSubmit = async (e) => {
       startDate: task.dueDate,                  // Maps to Column G
       freq: task.frequency,                     // Maps to Column H
       enableReminders: task.enableReminders ? "Yes" : "No",    // Maps to Column I
-      requireAttachment: task.requireAttachment ? "Yes" : "No"  // Maps to Column J
+      requireAttachment: task.requireAttachment ? "Yes" : "No", // Maps to Column J
+      endDate: task.endDate || ""               // Maps to Column K (only for one-time tasks)
     }));
 
     console.log(`Submitting ${tasksData.length} tasks in batch to ${submitSheetName} sheet:`, tasksData);
@@ -777,6 +794,7 @@ const handleSubmit = async (e) => {
       requireAttachment: false
     });
     setSelectedDate(null);
+    setEndDate(null);
     setGeneratedTasks([]);
     setAccordionOpen(false);
   } catch (error) {
@@ -902,8 +920,85 @@ const handleSubmit = async (e) => {
                 />
               </div>
 
-              {/* Date and Frequency */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Frequency */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="frequency"
+                  className="block text-sm font-medium text-purple-700"
+                >
+                  Frequency
+                </label>
+                <select
+                  id="frequency"
+                  name="frequency"
+                  value={formData.frequency}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  {frequencies.map((freq) => (
+                    <option key={freq.value} value={freq.value}>
+                      {freq.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Fields - Conditional Layout */}
+              {formData.frequency === "one-time" ? (
+                // Two separate date fields for one-time tasks
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-purple-700">
+                      Task Start Date
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowCalendar(!showCalendar)}
+                        className="w-full flex justify-start items-center rounded-md border border-purple-200 p-2 text-left focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      >
+                        <Calendar className="mr-2 h-4 w-4 text-purple-500" />
+                        {date ? getFormattedDate(date) : "Select start date"}
+                      </button>
+                      {showCalendar && (
+                        <div className="absolute z-10 mt-1">
+                          <CalendarComponent
+                            date={date}
+                            onChange={setSelectedDate}
+                            onClose={() => setShowCalendar(false)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-purple-700">
+                      Task End Date
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowEndCalendar(!showEndCalendar)}
+                        className="w-full flex justify-start items-center rounded-md border border-purple-200 p-2 text-left focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      >
+                        <Calendar className="mr-2 h-4 w-4 text-purple-500" />
+                        {endDate ? getFormattedDate(endDate) : "Select end date"}
+                      </button>
+                      {showEndCalendar && (
+                        <div className="absolute z-10 mt-1">
+                          <CalendarComponent
+                            date={endDate}
+                            onChange={setEndDate}
+                            onClose={() => setShowEndCalendar(false)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Single date field for recurring tasks
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-purple-700">
                     Task Start Date
@@ -928,29 +1023,7 @@ const handleSubmit = async (e) => {
                     )}
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="frequency"
-                    className="block text-sm font-medium text-purple-700"
-                  >
-                    Frequency
-                  </label>
-                  <select
-                    id="frequency"
-                    name="frequency"
-                    value={formData.frequency}
-                    onChange={handleChange}
-                    className="w-full rounded-md border border-purple-200 p-2 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  >
-                    {frequencies.map((freq) => (
-                      <option key={freq.value} value={freq.value}>
-                        {freq.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              )}
 
               {/* Additional Options */}
               <div className="space-y-4 pt-2 border-t border-purple-100">
@@ -1067,7 +1140,10 @@ const handleSubmit = async (e) => {
                                   {task.description}
                                 </div>
                                 <div className="text-xs text-purple-600">
-                                  Due: {task.dueDate}
+                                  Start: {task.dueDate}
+                                  {task.endDate && (
+                                    <span> | End: {task.endDate}</span>
+                                  )}
                                 </div>
                                 <div className="flex space-x-2 mt-1">
                                   {task.enableReminders && (
@@ -1113,6 +1189,7 @@ const handleSubmit = async (e) => {
                     requireAttachment: false,
                   });
                   setSelectedDate(null);
+                  setEndDate(null);
                   setGeneratedTasks([]);
                   setAccordionOpen(false);
                 }}

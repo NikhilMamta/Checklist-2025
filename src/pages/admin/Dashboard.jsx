@@ -183,6 +183,15 @@ export default function AdminDashboard() {
     return date.getTime() === tomorrow.getTime()
   }
 
+  // Function to check if a date is in the future (after today)
+  const isDateInFuture = (dateStr) => {
+    const date = parseDateFromDDMMYYYY(dateStr)
+    if (!date) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return date > today
+  }
+
   // Safe access to cell value
   const getCellValue = (row, index) => {
     if (!row || !row.c || index >= row.c.length) return null
@@ -457,10 +466,20 @@ export default function AdminDashboard() {
           console.log(`Row ${rowIndex + 1}: taskStartDateObj=${taskStartDateObj}, today=${today}, tomorrow=${tomorrow}, isValid=${!!taskStartDateObj}`);
         }
        
-        // FIXED: Process tasks that have a valid start date and are due up to tomorrow (include tomorrow's tasks)
-        if (!taskStartDateObj || taskStartDateObj > tomorrow) {
-          if (rowIndex <= 5) console.log(`Row ${rowIndex + 1}: Skipped due to invalid/far future date (beyond tomorrow)`);
-          return null; // Skip tasks beyond tomorrow
+        // For delegation mode: Include ALL tasks with valid dates (no tomorrow restriction)
+        // For checklist mode: Process tasks that have a valid start date and are due up to tomorrow
+        if (dashboardType === "delegation") {
+          // In delegation mode, include all tasks with valid dates
+          if (!taskStartDateObj) {
+            if (rowIndex <= 5) console.log(`Row ${rowIndex + 1}: Skipped due to invalid date in delegation mode`);
+            return null;
+          }
+        } else {
+          // In checklist mode, keep the original logic (up to tomorrow)
+          if (!taskStartDateObj || taskStartDateObj > tomorrow) {
+            if (rowIndex <= 5) console.log(`Row ${rowIndex + 1}: Skipped due to invalid/far future date (beyond tomorrow) in checklist mode`);
+            return null;
+          }
         }
 
         // Get completion data based on dashboard type
@@ -534,9 +553,10 @@ export default function AdminDashboard() {
         const staffData = staffTrackingMap.get(assignedTo);
         staffData.totalTasks++;
 
-        // Count for dashboard cards - FIXED: Only count tasks up to today for stats
-        // But show tomorrow tasks in the task lists
-        const shouldCountInStats = taskStartDateObj <= today;
+        // Count for dashboard cards
+        // For delegation mode: Count all tasks regardless of date
+        // For checklist mode: Only count tasks up to today for stats
+        const shouldCountInStats = dashboardType === "delegation" ? true : taskStartDateObj <= today;
        
         if (shouldCountInStats) {
           totalTasks++;
@@ -710,7 +730,7 @@ export default function AdminDashboard() {
     return true;
   });
 
-  // Get tasks by view with updated logic based on Task Start Date
+  // Get tasks by view with updated logic based on Task Start Date and dashboard type
   const getTasksByView = (view) => {
     const viewFilteredTasks = filteredTasks.filter((task) => {
       // Skip completed tasks in all views
@@ -724,8 +744,14 @@ export default function AdminDashboard() {
           // Show tasks due today (pending only)
           return isDateToday(task.taskStartDate);
         case "upcoming":
-          // Show tasks due tomorrow (pending only)
-          return isDateTomorrow(task.taskStartDate);
+          // UPDATED LOGIC FOR DELEGATION MODE
+          if (dashboardType === "delegation") {
+            // For delegation: Show ALL pending tasks with future dates (excluding today)
+            return isDateInFuture(task.taskStartDate);
+          } else {
+            // For checklist: Show tasks due tomorrow only (original logic)
+            return isDateTomorrow(task.taskStartDate);
+          }
         case "overdue":
           // Show tasks with start dates in the past (excluding today)
           return isDateInPast(task.taskStartDate) && !isDateToday(task.taskStartDate);
@@ -925,7 +951,7 @@ export default function AdminDashboard() {
               <div className="text-3xl font-bold text-blue-700">{departmentData.totalTasks}</div>
               <p className="text-xs text-blue-600">
                 {dashboardType === "delegation"
-                  ? "Total tasks in delegation (up to today)"
+                  ? "Total tasks in delegation"
                   : selectedMasterOption !== "Select Department"
                     ? `Total tasks in ${selectedMasterOption} (up to today)`
                     : "Select a department"
@@ -1009,7 +1035,7 @@ export default function AdminDashboard() {
                 }`}
               onClick={() => setTaskView("upcoming")}
             >
-              Upcoming Tasks
+              {dashboardType === "delegation" ? "All Pending Tasks" : "Upcoming Tasks"}
             </button>
             <button
               className={`py-3 text-center font-medium transition-colors ${taskView === "overdue" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
