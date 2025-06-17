@@ -47,7 +47,7 @@ export default function AdminLayout({ children, darkMode, toggleDarkMode }) {
     { id: "general-ward", name: "General Ward", link: "/dashboard/data/general-ward" },
     { id: "private-ward", name: "Private Ward", link: "/dashboard/data/private-ward" },
     { id: "director", name: "HR", link: "/dashboard/data/director" },
-    { id: "managing-director", name: "Health And Safety", link: "/dashboard/data/managing-director" },
+    { id: "managing-director", name: "Operation", link: "/dashboard/data/managing-director" },
     { id: "marketing", name: "Marketing", link: "/dashboard/data/marketing" },
     { id: "reception", name: "Reception", link: "/dashboard/data/reception" },
     { id: "icu", name: "ICU", link: "/dashboard/data/icu" },

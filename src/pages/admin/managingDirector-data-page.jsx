@@ -1,4 +1,4 @@
-//Health And Safety Tasks Page
+//Operation Tasks Page
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
@@ -15,12 +15,12 @@ const CONFIG = {
   DRIVE_FOLDER_ID: "1xMhpWumEDrKCY4mjATvRKL_4psPPpYCU",
 
   // Sheet name to work with
-  SHEET_NAME: "Health And Safety",
+  SHEET_NAME: "Operation",
 
   // Page configuration
   PAGE_CONFIG: {
-    title: "Health And Safety Tasks",
-    historyTitle: "Health And Safety Task History",
+    title: "Operation Tasks",
+    historyTitle: "Operation Task History",
     description: "Showing today, tomorrow's tasks and past due tasks",
     historyDescription: "Read-only view of completed tasks with submission history",
   },
